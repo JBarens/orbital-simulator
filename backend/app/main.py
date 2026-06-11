@@ -27,9 +27,11 @@ def get_position(id: int, db: Session = Depends(get_db)):
 
 @app.post("/satellites/fetch/{norad_id}")
 def fetch_satellite(norad_id: int, db: Session = Depends(get_db)):
-    url = f"https://celestrak.com/SOCET/query.php?CATNR={norad_id}&FORMAT=TLE"
-    response = httpx.get(url)
+    url = f"https://celestrak.org/NORAD/elements/gp.php?CATNR={norad_id}&FORMAT=tle"
+    response = httpx.get(url, verify=False, follow_redirects=True)
     lines = response.text.strip().splitlines()
+    if len(lines) < 3:
+        return {"error": "Could not fetch TLE data for that NORAD ID"}
     sat = Satellite(name=lines[0].strip(), tle_line1=lines[1], tle_line2=lines[2])
     db.add(sat)
     db.commit()
