@@ -15,4 +15,4 @@ services:
     depends_on:
       - db
     environment:
-      DATABASE_URL: postgres://jasper:secret@db:5432/orbital
+      DATABASE_URL: postgresql://jasper:secret@db:5432/orbital
