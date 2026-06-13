@@ -104,7 +104,12 @@ def fetch_satellite(
     user_id: str = Depends(get_current_user),
 ):
     url = f"https://celestrak.org/NORAD/elements/gp.php?CATNR={norad_id}&FORMAT=tle"
-    response = httpx.get(url, verify=False, follow_redirects=True)
+    try:
+        response = httpx.get(url, verify=False, follow_redirects=True, timeout=10.0)
+    except httpx.TimeoutException:
+        return {"error": "CelesTrak request timed out"}
+    except httpx.RequestError as e:
+        return {"error": f"Network error: {e}"}
     lines = response.text.strip().splitlines()
     if len(lines) < 3:
         return {"error": "Could not fetch TLE data for that NORAD ID"}
