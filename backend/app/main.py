@@ -119,17 +119,17 @@ def fetch_satellite(
     db: Session = Depends(get_db),
     user_id: str = Depends(get_current_user),
 ):
-    url = f"https://celestrak.org/NORAD/elements/gp.php?CATNR={norad_id}&FORMAT=tle"
+    url = f"https://tle.ivanstanojevic.me/api/tle/{norad_id}"
     try:
-        response = httpx.get(url, verify=False, follow_redirects=True, timeout=10.0)
+        response = httpx.get(url, follow_redirects=True, timeout=10.0)
+        data = response.json()
     except httpx.TimeoutException:
-        return {"error": "CelesTrak request timed out"}
-    except httpx.RequestError as e:
+        return {"error": "TLE API request timed out"}
+    except Exception as e:
         return {"error": f"Network error: {e}"}
-    lines = response.text.strip().splitlines()
-    if len(lines) < 3:
+    if "line1" not in data or "line2" not in data:
         return {"error": "Could not fetch TLE data for that NORAD ID"}
-    sat = Satellite(name=lines[0].strip(), tle_line1=lines[1], tle_line2=lines[2], user_id=user_id)
+    sat = Satellite(name=data["name"].strip(), tle_line1=data["line1"], tle_line2=data["line2"], user_id=user_id)
     db.add(sat)
     db.commit()
     db.refresh(sat)

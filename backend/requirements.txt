@@ -6,3 +6,4 @@ skyfield
 httpx
 pydantic
 PyJWT
+cryptography

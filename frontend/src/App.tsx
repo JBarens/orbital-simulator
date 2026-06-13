@@ -176,15 +176,19 @@ function App() {
   useEffect(() => {
     if (!session) return;
     const fetchDisplay = async () => {
-      const [posRes, smRes] = await Promise.all([
-        authFetch(`/satellites/positions?minutes_from_now=${minutesOffset}`),
-        authFetch(`/sun_moon?minutes_from_now=${minutesOffset}`),
-      ]);
-      if (!posRes.ok || !smRes.ok) return;
-      const [posData, smData] = await Promise.all([posRes.json(), smRes.json()]);
-      if (!Array.isArray(posData)) return;
-      setPositions(posData);
-      setSunMoon(smData);
+      try {
+        const [posRes, smRes] = await Promise.all([
+          authFetch(`/satellites/positions?minutes_from_now=${minutesOffset}`),
+          authFetch(`/sun_moon?minutes_from_now=${minutesOffset}`),
+        ]);
+        if (!posRes.ok || !smRes.ok) return;
+        const [posData, smData] = await Promise.all([posRes.json(), smRes.json()]);
+        if (!Array.isArray(posData)) return;
+        setPositions(posData);
+        setSunMoon(smData);
+      } catch (e) {
+        console.error("fetchDisplay error:", e);
+      }
     };
     fetchDisplay();
     const id = setInterval(fetchDisplay, 2000);
@@ -199,9 +203,14 @@ function App() {
       if (!playing && offset !== 0) return;
       if (!sessionRef.current) return;
 
-      const res = await authFetch(
-        `/satellites/positions?minutes_from_now=${offset}`,
-      );
+      let res: Response;
+      try {
+        res = await authFetch(`/satellites/positions?minutes_from_now=${offset}`);
+      } catch (e) {
+        console.error("accumulate fetch error:", e, "API=", import.meta.env.VITE_API_URL);
+        return;
+      }
+      if (!res.ok) return;
       const data: Position[] = await res.json();
       const updated = { ...trailsRef.current };
       for (const p of data) {
