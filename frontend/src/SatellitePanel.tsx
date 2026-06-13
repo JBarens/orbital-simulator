@@ -17,15 +17,26 @@ export default function SatellitePanel({
     if (!noradID) return;
     setLoading(true);
     setStatus("");
-    const res = await authFetch(`/satellites/fetch/${noradID}`, { method: "POST" });
-    const data = await res.json();
-    setLoading(false);
-    if (data.error) {
-      setStatus(`err: ${data.error}`);
-    } else {
-      setStatus(`+ ${data.name}`);
+    try {
+      const tleRes = await fetch(`https://tle.ivanstanojevic.me/api/tle/${noradID}`);
+      if (!tleRes.ok) { setStatus("err: NORAD ID not found"); setLoading(false); return; }
+      const tle = await tleRes.json();
+      if (!tle.line1 || !tle.line2) { setStatus("err: No TLE data"); setLoading(false); return; }
+
+      const saveRes = await authFetch("/satellites/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: tle.name, tle_line1: tle.line1, tle_line2: tle.line2 }),
+      });
+      const saved = await saveRes.json();
+      setLoading(false);
+      if (saved.detail) { setStatus(`err: ${saved.detail}`); return; }
+      setStatus(`+ ${saved.name}`);
       setNoradID("");
       onAdded?.();
+    } catch (e) {
+      setStatus("err: Network error");
+      setLoading(false);
     }
   };
 
