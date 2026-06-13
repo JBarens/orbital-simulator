@@ -40,12 +40,12 @@ const TRAIL_LENGTH = 90;
 const MAX_MINUTES = 1440;
 
 function formatOffset(m: number) {
-  if (m === 0) return "T+00:00";
-  const sign = m > 0 ? "+" : "-";
-  const abs = Math.abs(m);
-  const h = String(Math.floor(abs / 60)).padStart(2, "0");
-  const min = String(Math.floor(abs % 60)).padStart(2, "0");
-  return `T${sign}${h}:${min}`;
+  const sign = m >= 0 ? "+" : "-";
+  const totalSec = Math.round(Math.abs(m) * 60);
+  const h = String(Math.floor(totalSec / 3600)).padStart(2, "0");
+  const min = String(Math.floor((totalSec % 3600) / 60)).padStart(2, "0");
+  const sec = String(totalSec % 60).padStart(2, "0");
+  return `T${sign}${h}:${min}:${sec}`;
 }
 
 const btnStyle: React.CSSProperties = {

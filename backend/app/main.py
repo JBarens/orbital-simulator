@@ -60,6 +60,22 @@ def _dist(a: tuple, b: tuple) -> float:
     return math.sqrt(sum((a[i] - b[i]) ** 2 for i in range(3)))
 
 
+# ── Diagnostics ──────────────────────────────────────────────────────────────
+
+@app.get("/ping_celestrak")
+def ping_celestrak():
+    try:
+        r = httpx.get(
+            "https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=tle",
+            verify=False, follow_redirects=True, timeout=10.0,
+        )
+        return {"status": r.status_code, "lines": len(r.text.strip().splitlines())}
+    except httpx.TimeoutException:
+        return {"error": "timeout"}
+    except httpx.RequestError as e:
+        return {"error": str(e)}
+
+
 # ── Satellite CRUD ────────────────────────────────────────────────────────────
 
 @app.post("/satellites/")
