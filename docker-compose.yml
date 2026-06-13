@@ -17,5 +17,6 @@ services:
     environment:
       DATABASE_URL: postgresql://jasper:secret@db:5432/orbital
       WATCHFILES_FORCE_POLLING: "true"
+      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
     volumes:
       - ./backend/app:/app

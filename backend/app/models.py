@@ -12,3 +12,4 @@ class Satellite(Base):
     tle_line1 = Column(String, nullable=False)
     tle_line2 = Column(String, nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    user_id = Column(String, nullable=True, index=True)  # Supabase user UUID

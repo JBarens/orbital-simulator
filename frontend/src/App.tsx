@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import type { Session } from "@supabase/supabase-js";
 import Globe from "./Globe";
 import SatellitePanel from "./SatellitePanel";
 import OrbitalElementsPanel, { type OrbitalElements } from "./OrbitalElementsPanel";
+import { supabase } from "./supabase";
 
 export type Position = {
   id: number;
@@ -58,6 +60,33 @@ const btnStyle: React.CSSProperties = {
 };
 
 function App() {
+  const [session, setSession] = useState<Session | null>(null);
+  const sessionRef = useRef<Session | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      sessionRef.current = session;
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      sessionRef.current = session;
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Attaches the Supabase JWT to every API request
+  const authFetch = (path: string, options?: RequestInit) => {
+    const token = sessionRef.current?.access_token;
+    return fetch(`http://localhost:8000${path}`, {
+      ...options,
+      headers: {
+        ...(options?.headers ?? {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+  };
+
   const [positions, setPositions] = useState<Position[]>([]);
   const [minutesOffset, setMinutesOffset] = useState(0);
   const trailsRef = useRef<Trails>({});
@@ -83,8 +112,9 @@ function App() {
 
   // CDM polling
   useEffect(() => {
+    if (!session) return;
     const doFetch = () => {
-      fetch(`http://localhost:8000/cdm?threshold_km=${cdmThreshold}`)
+      authFetch(`/cdm?threshold_km=${cdmThreshold}`)
         .then((res) => res.json())
         .then((data) => setConjunctions(data))
         .catch((err) => console.error("CDM fetch error:", err));
@@ -92,7 +122,7 @@ function App() {
     doFetch();
     const id = setInterval(doFetch, 5000);
     return () => clearInterval(id);
-  }, [cdmThreshold]);
+  }, [cdmThreshold, session]);
 
   // Time animation
   const togglePlay = (dir: 1 | -1) => {
@@ -132,7 +162,7 @@ function App() {
   };
 
   const fetchSatelliteList = async () => {
-    const res = await fetch("http://localhost:8000/satellites/");
+    const res = await authFetch("/satellites/");
     const data: SatelliteRecord[] = await res.json();
     setSatellites(data);
   };
@@ -143,10 +173,11 @@ function App() {
 
   // Display positions + sun/moon — reruns on every minutesOffset change
   useEffect(() => {
+    if (!session) return;
     const fetchDisplay = async () => {
       const [posRes, smRes] = await Promise.all([
-        fetch(`http://localhost:8000/satellites/positions?minutes_from_now=${minutesOffset}`),
-        fetch(`http://localhost:8000/sun_moon?minutes_from_now=${minutesOffset}`),
+        authFetch(`/satellites/positions?minutes_from_now=${minutesOffset}`),
+        authFetch(`/sun_moon?minutes_from_now=${minutesOffset}`),
       ]);
       const [posData, smData] = await Promise.all([posRes.json(), smRes.json()]);
       setPositions(posData);
@@ -155,7 +186,7 @@ function App() {
     fetchDisplay();
     const id = setInterval(fetchDisplay, 2000);
     return () => clearInterval(id);
-  }, [minutesOffset]);
+  }, [minutesOffset, session]);
 
   // Trail accumulation — stable interval, reads live values through refs
   useEffect(() => {
@@ -163,9 +194,10 @@ function App() {
       const playing = isPlayingRef.current;
       const offset = minutesOffsetRef.current;
       if (!playing && offset !== 0) return;
+      if (!sessionRef.current) return;
 
-      const res = await fetch(
-        `http://localhost:8000/satellites/positions?minutes_from_now=${offset}`,
+      const res = await authFetch(
+        `/satellites/positions?minutes_from_now=${offset}`,
       );
       const data: Position[] = await res.json();
       const updated = { ...trailsRef.current };
@@ -191,7 +223,7 @@ function App() {
   // Fetch orbital elements when a satellite is selected
   useEffect(() => {
     if (!selectedSat) { setElements(null); return; }
-    fetch(`http://localhost:8000/satellites/${selectedSat.id}/elements`)
+    authFetch(`/satellites/${selectedSat.id}/elements`)
       .then((r) => r.json())
       .then(setElements)
       .catch(console.error);
@@ -201,6 +233,36 @@ function App() {
   const selectedSatLive = selectedSat
     ? (positions.find((p) => p.id === selectedSat.id) ?? selectedSat)
     : null;
+
+  // Login screen shown when not authenticated
+  if (!session) {
+    return (
+      <div style={{
+        width: "100%", height: "100%", background: "#000008",
+        display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 24,
+      }}>
+        <div style={{ fontFamily: "monospace", letterSpacing: 6, fontSize: 13, color: "rgba(255,255,255,0.3)", textTransform: "uppercase" }}>
+          Orbital Simulator
+        </div>
+        <button
+          onClick={() => supabase.auth.signInWithOAuth({ provider: "github", options: { redirectTo: window.location.origin } })}
+          style={{
+            background: "none",
+            border: "1px solid rgba(255,255,255,0.2)",
+            color: "rgba(255,255,255,0.7)",
+            fontFamily: "monospace",
+            fontSize: 11,
+            letterSpacing: 3,
+            padding: "10px 24px",
+            cursor: "pointer",
+            textTransform: "uppercase",
+          }}
+        >
+          Login with GitHub
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
@@ -241,22 +303,27 @@ function App() {
         >
           Orbital Simulator
         </span>
-        <span
-          style={{
-            fontFamily: "monospace",
-            fontSize: 11,
-            color:
-              minutesOffset === 0
-                ? "rgba(80,255,160,0.6)"
-                : "rgba(255,180,60,0.7)",
-            letterSpacing: 2,
-          }}
-        >
-          {formatOffset(minutesOffset)}
-          <span style={{ marginLeft: 12, color: "rgba(255,255,255,0.2)" }}>
-            {positions.length} OBJ
+        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+          <span
+            style={{
+              fontFamily: "monospace",
+              fontSize: 11,
+              color: minutesOffset === 0 ? "rgba(80,255,160,0.6)" : "rgba(255,180,60,0.7)",
+              letterSpacing: 2,
+            }}
+          >
+            {formatOffset(minutesOffset)}
+            <span style={{ marginLeft: 12, color: "rgba(255,255,255,0.2)" }}>
+              {positions.length} OBJ
+            </span>
           </span>
-        </span>
+          <button
+            onClick={() => supabase.auth.signOut()}
+            style={{ ...btnStyle, pointerEvents: "all", fontSize: 9, letterSpacing: 2, opacity: 0.5 }}
+          >
+            {session.user.email ?? "logout"} ✕
+          </button>
+        </div>
       </div>
 
       {/* Left panel: selected sat info + CDM */}
@@ -358,7 +425,7 @@ function App() {
           gap: 16,
         }}
       >
-        <SatellitePanel onAdded={fetchSatelliteList} />
+        <SatellitePanel onAdded={fetchSatelliteList} authFetch={authFetch} />
 
         {/* Layer toggles */}
         <div style={{ display: "flex", gap: 6 }}>
@@ -456,7 +523,7 @@ function App() {
                 </span>
                 <button
                   onClick={async () => {
-                    await fetch(`http://localhost:8000/satellites/${s.id}`, { method: "DELETE" });
+                    await authFetch(`/satellites/${s.id}`, { method: "DELETE" });
                     if (selectedSat?.id === s.id) setSelectedSat(null);
                     clearTrails();
                     fetchSatelliteList();
