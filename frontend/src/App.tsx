@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import Globe from "./Globe";
+import SatellitePanel from "./SatellitePanel";
 
 type Position = {
   id: number;
@@ -26,6 +27,7 @@ function App() {
 
   return (
     <div style={{ width: "100vw", height: "100vh" }}>
+      <SatellitePanel />
       <Globe positions={positions} />
     </div>
   );
