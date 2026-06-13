@@ -179,7 +179,9 @@ function App() {
         authFetch(`/satellites/positions?minutes_from_now=${minutesOffset}`),
         authFetch(`/sun_moon?minutes_from_now=${minutesOffset}`),
       ]);
+      if (!posRes.ok || !smRes.ok) return;
       const [posData, smData] = await Promise.all([posRes.json(), smRes.json()]);
+      if (!Array.isArray(posData)) return;
       setPositions(posData);
       setSunMoon(smData);
     };
