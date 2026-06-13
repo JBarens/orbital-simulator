@@ -1,18 +1,25 @@
+from types import GeneratorType
 from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
 from database import Base, engine, get_db
 from models import Satellite
-from propagtor import propagate_satellite
+from propagator import propagate_satellite
+from pydantic import BaseModel
 import httpx
 
 app = FastAPI()
 
 Base.metadata.create_all(bind=engine)
 
+class SatelliteCreate(BaseModel):
+    name: str
+    tle_line1: str
+    tle_line2: str
+
 
 @app.post("/satellites/")
-def create_satellite(name: str, tle_line1: str, tle_line2: str, db: Session = Depends(get_db)):
-    sat = Satellite(name=name, tle_line1=tle_line1, tle_line2=tle_line2)
+def create_satellite(data: SatelliteCreate, db: Session = Depends(get_db)):
+    sat = Satellite(name=data.name, tle_line1=data.tle_line1, tle_line2=data.tle_line2)
     db.add(sat)
     db.commit()
     db.refresh(sat)
@@ -22,6 +29,9 @@ def create_satellite(name: str, tle_line1: str, tle_line2: str, db: Session = De
 @app.get("/satellites/{id}/position")
 def get_position(id: int, db: Session = Depends(get_db)):
     sat = db.query(Satellite).filter(Satellite.id == id).first()
+    if not sat:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Satellite not found")
     return propagate_satellite(sat.tle_line1, sat.tle_line2, sat.name)
 
 

@@ -16,3 +16,5 @@ services:
       - db
     environment:
       DATABASE_URL: postgresql://jasper:secret@db:5432/orbital
+      WATCHFILES_FORCE_POLLING: "true"
+
