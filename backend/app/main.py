@@ -62,6 +62,22 @@ def _dist(a: tuple, b: tuple) -> float:
 
 # ── Diagnostics ──────────────────────────────────────────────────────────────
 
+@app.get("/auth_debug")
+def auth_debug():
+    import httpx as _httpx
+    supabase_url = os.environ.get("SUPABASE_URL", "NOT SET")
+    jwt_secret = "SET" if os.environ.get("SUPABASE_JWT_SECRET") else "NOT SET"
+    jwks_status = "skipped"
+    if supabase_url != "NOT SET":
+        try:
+            r = _httpx.get(f"{supabase_url}/auth/v1/.well-known/jwks.json", timeout=5.0)
+            keys = r.json().get("keys", [])
+            jwks_status = f"ok ({len(keys)} keys, kids={[k.get('kid','?') for k in keys]})"
+        except Exception as e:
+            jwks_status = f"error: {e}"
+    return {"supabase_url": supabase_url, "jwt_secret": jwt_secret, "jwks": jwks_status}
+
+
 @app.get("/ping_celestrak")
 def ping_celestrak():
     try:
