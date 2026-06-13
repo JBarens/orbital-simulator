@@ -1,4 +1,3 @@
-from types import GeneratorType
 from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
 from database import Base, engine, get_db
@@ -26,13 +25,23 @@ def create_satellite(data: SatelliteCreate, db: Session = Depends(get_db)):
     return sat
 
 
+@app.get("/satellites/positions")
+def get_all_positions(db: Session = Depends(get_db)):
+    satellites = db.query(Satellite).all()
+    positions = []
+    for sat in satellites:
+        pos = propagate_satellite(sat.tle_line1, sat.tle_line2, sat.name)
+        positions.append({"id": sat.id, "name": sat.name, **pos})
+    return positions
+
+
 @app.get("/satellites/{id}/position")
-def get_position(id: int, db: Session = Depends(get_db)):
+def get_position(id: int, minutes_from_now: float = 0.0, db: Session = Depends(get_db)):
     sat = db.query(Satellite).filter(Satellite.id == id).first()
     if not sat:
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Satellite not found")
-    return propagate_satellite(sat.tle_line1, sat.tle_line2, sat.name)
+    return propagate_satellite(sat.tle_line1, sat.tle_line2, sat.name, minutes_from_now)
 
 
 @app.post("/satellites/fetch/{norad_id}")
@@ -47,3 +56,10 @@ def fetch_satellite(norad_id: int, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(sat)
     return sat
+
+
+@app.get("/satellites/")
+def list_satellites(db: Session = Depends(get_db)):
+    return db.query(Satellite).all()
+
+
