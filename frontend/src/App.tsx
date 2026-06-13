@@ -76,9 +76,10 @@ function App() {
   }, []);
 
   // Attaches the Supabase JWT to every API request
+  const API = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
   const authFetch = (path: string, options?: RequestInit) => {
     const token = sessionRef.current?.access_token;
-    return fetch(`http://localhost:8000${path}`, {
+    return fetch(`${API}${path}`, {
       ...options,
       headers: {
         ...(options?.headers ?? {}),
