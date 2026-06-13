@@ -115,8 +115,8 @@ function App() {
     if (!session) return;
     const doFetch = () => {
       authFetch(`/cdm?threshold_km=${cdmThreshold}`)
-        .then((res) => res.json())
-        .then((data) => setConjunctions(data))
+        .then((res) => (res.ok ? res.json() : []))
+        .then((data) => Array.isArray(data) && setConjunctions(data))
         .catch((err) => console.error("CDM fetch error:", err));
     };
     doFetch();
