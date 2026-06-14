@@ -19,8 +19,8 @@ function altToRadius(elevation_km: number) {
   return (EARTH_RADIUS_KM + elevation_km) / EARTH_RADIUS_KM;
 }
 
-const MOON_ORBIT_RADIUS = 10;
-const MOON_RADIUS = 0.35;
+const MOON_ORBIT_RADIUS = 60.3; // 384,400 km / 6,371 km per scene unit
+const MOON_RADIUS = 0.273;      // 1,737 km / 6,371 km per scene unit
 const MOON_PERIOD_MINUTES = 27.3 * 24 * 60;
 const SUN_DIST = 200;
 const SUN_RADIUS = 2.5;
@@ -500,7 +500,7 @@ function Scene({
         enableDamping
         dampingFactor={0.05}
         minDistance={1.2}
-        maxDistance={50}
+        maxDistance={150}
         makeDefault
         onStart={() => { focusAnim.current = null; }}
       />
