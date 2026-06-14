@@ -13,6 +13,12 @@ import type { Trails, Position, TrailPoint } from "./App";
 
 const DEFAULT_SUN_DIR = new THREE.Vector3(1, 0.05, 0).normalize();
 
+const EARTH_RADIUS_KM = 6371;
+// Convert real altitude to Three.js scene units (Earth = radius 1)
+function altToRadius(elevation_km: number) {
+  return (EARTH_RADIUS_KM + elevation_km) / EARTH_RADIUS_KM;
+}
+
 const MOON_ORBIT_RADIUS = 10;
 const MOON_RADIUS = 0.35;
 const MOON_PERIOD_MINUTES = 27.3 * 24 * 60;
@@ -295,14 +301,13 @@ function SatelliteTrail({ trail }: { trail: TrailPoint[] }) {
     if (trail.length < 2) return [];
     const raw = trail.map((p) => {
       const rotY = p.capturedOffset * EARTH_ROT_PER_MIN;
-      return new THREE.Vector3(...latLonToXYZ(p.latitude, p.longitude, 1.06, rotY));
+      const r = altToRadius(p.elevation_km);
+      return new THREE.Vector3(...latLonToXYZ(p.latitude, p.longitude, r, rotY));
     });
     const result: THREE.Vector3[] = [];
     for (let i = 0; i < raw.length - 1; i++) {
-      const a = raw[i].clone().normalize();
-      const b = raw[i + 1].clone().normalize();
       for (let t = 0; t < 6; t++) {
-        result.push(a.clone().lerp(b, t / 6).normalize().multiplyScalar(1.06));
+        result.push(raw[i].clone().lerp(raw[i + 1], t / 6));
       }
     }
     result.push(raw[raw.length - 1]);
@@ -339,7 +344,10 @@ function Satellite({
   showGroundTrack: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
-  const pos = latLonToXYZ(p.latitude, p.longitude, 1.05, earthRotY);
+  const radius = altToRadius(p.elevation_km);
+  const pos = latLonToXYZ(p.latitude, p.longitude, radius, earthRotY);
+  // Scale dot so high-altitude satellites remain visible when zoomed out
+  const dotSize = 0.022 * Math.sqrt(radius);
   const glowRef = useRef<THREE.Mesh>(null);
 
   useFrame(({ clock }) => {
@@ -360,7 +368,7 @@ function Satellite({
           onClick={(e) => { e.stopPropagation(); onSelect(p); }}
           onDoubleClick={(e) => { e.stopPropagation(); onFocus(new THREE.Vector3(...pos), 0.3); }}
         >
-          <sphereGeometry args={[0.022, 12, 12]} />
+          <sphereGeometry args={[dotSize, 12, 12]} />
           <meshStandardMaterial
             color={hovered ? "#ffcc00" : "#ff3333"}
             emissive={hovered ? "#ffcc00" : "#ff3333"}
@@ -369,7 +377,7 @@ function Satellite({
           />
         </mesh>
         <mesh ref={glowRef}>
-          <sphereGeometry args={[0.038, 12, 12]} />
+          <sphereGeometry args={[dotSize * 1.7, 12, 12]} />
           <meshStandardMaterial
             color={hovered ? "#ffcc00" : "#ff4444"}
             emissive={hovered ? "#ffcc00" : "#ff4444"}
