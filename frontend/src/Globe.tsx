@@ -221,15 +221,38 @@ function moonXYZ(angle: number): THREE.Vector3 {
   );
 }
 
-// Static, always-visible full lunar orbit ring
-function MoonOrbit() {
+// Full lunar orbit ring — tilted so it passes through the Moon's
+// actual position. Falls back to the flat XZ circle when no real
+// Moon direction is available.
+function MoonOrbit({ moonPos }: { moonPos: THREE.Vector3 | null }) {
   const points = useMemo(() => {
     const steps = 256;
+
+    if (moonPos && moonPos.lengthSq() > 1e-6) {
+      // u: radial axis through the Moon. v: in-plane axis perpendicular to u.
+      const u = moonPos.clone().normalize();
+      const Y = new THREE.Vector3(0, 1, 0);
+      // Orbit-plane normal: component of world-up perpendicular to u
+      // (keeps the ring as horizontal as possible while still containing the Moon).
+      let n = Y.clone().sub(u.clone().multiplyScalar(Y.dot(u)));
+      if (n.lengthSq() < 1e-6) n = new THREE.Vector3(0, 0, 1); // Moon near a pole
+      n.normalize();
+      const v = n.clone().cross(u).normalize();
+
+      return Array.from({ length: steps + 1 }, (_, i) => {
+        const a = (i / steps) * 2 * Math.PI;
+        return u
+          .clone()
+          .multiplyScalar(Math.cos(a) * MOON_ORBIT_RADIUS)
+          .add(v.clone().multiplyScalar(Math.sin(a) * MOON_ORBIT_RADIUS));
+      });
+    }
+
     return Array.from({ length: steps + 1 }, (_, i) => {
       const angle = (i / steps) * 2 * Math.PI;
       return moonXYZ(angle);
     });
-  }, []);
+  }, [moonPos]);
 
   return (
     <Line
@@ -481,7 +504,7 @@ function Scene({
       />
       <Sun direction={sunVec} />
       <Earth minutesOffset={minutesOffset} onFocus={handleFocus} sunDirection={sunVec} />
-      <MoonOrbit />
+      <MoonOrbit moonPos={moonOverridePos} />
       <Moon minutesOffset={minutesOffset} onFocus={handleFocus} overridePos={moonOverridePos} />
       {positions.map((p) => (
         <Satellite
