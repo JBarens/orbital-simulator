@@ -221,23 +221,23 @@ function moonXYZ(angle: number): THREE.Vector3 {
   );
 }
 
-function MoonTrail({ minutesOffset }: { minutesOffset: number }) {
+// Static, always-visible full lunar orbit ring
+function MoonOrbit() {
   const points = useMemo(() => {
-    const steps = 80;
-    const trailMinutes = MOON_PERIOD_MINUTES / 6;
+    const steps = 256;
     return Array.from({ length: steps + 1 }, (_, i) => {
-      const t = minutesOffset - trailMinutes * (1 - i / steps);
-      return moonXYZ(moonAngle(t));
+      const angle = (i / steps) * 2 * Math.PI;
+      return moonXYZ(angle);
     });
-  }, [minutesOffset]);
+  }, []);
 
   return (
     <Line
       points={points}
-      color="#888888"
+      color="#666666"
       lineWidth={0.8}
       transparent
-      opacity={0.3}
+      opacity={0.25}
     />
   );
 }
@@ -481,7 +481,7 @@ function Scene({
       />
       <Sun direction={sunVec} />
       <Earth minutesOffset={minutesOffset} onFocus={handleFocus} sunDirection={sunVec} />
-      {!moonOverridePos && <MoonTrail minutesOffset={minutesOffset} />}
+      <MoonOrbit />
       <Moon minutesOffset={minutesOffset} onFocus={handleFocus} overridePos={moonOverridePos} />
       {positions.map((p) => (
         <Satellite
