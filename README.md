@@ -2,7 +2,7 @@
 
 A real-time 3D orbital mechanics visualizer. Track satellites around a photorealistic Earth, scrub forward and backward through time, and detect close-approach conjunctions — all behind per-user authentication.
 
-Live: **https://frontend-production-xxxx.up.railway.app** *(replace with your Railway URL)*
+Live: **https://orbital-simulator.up.railway.app/**
 
 ---
 
